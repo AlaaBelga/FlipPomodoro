@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Giant Flip Pomodoro</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="controls-bar">
+  <div class="settings-group">
+    <div class="input-group">
+      <label>Mode</label>
+      <select id="mode">
+        <option value="work">Work</option>
+        <option value="break">Break</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>Timer</label>
+      <select id="duration">
+        <option value="25">25 / 5</option>
+        <option value="50">50 / 10</option>
+        <option value="75">75 / 15</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>Card Color</label>
+      <input type="color" id="tileColor" value="#cddc9a">
+    </div>
+    
+    <div class="input-group">
+        <label>Bg Color</label>
+        <input type="color" id="bgColor" value="#e9f0f6">
+      </div>
+  </div>
+
+  <div class="action-group">
+    <button id="start" class="btn-primary">Start</button>
+    <button id="pause" class="btn-secondary" disabled>Pause</button>
+    <button id="reset" class="btn-danger">Stop</button>
+    <button id="fullscreen" class="btn-icon">⛶</button>
+  </div>
+</div>
+
+<div class="clock-container">
+  <div class="flip-unit" id="min-unit">
+    <div class="flip-card" id="min">
+      <div class="top">25</div>
+      <div class="bottom">25</div>
+      <div class="top-flip">25</div>
+      <div class="bottom-flip">25</div>
+    </div>
+    <div class="label">MINUTES</div>
+  </div>
+
+  <div class="flip-unit" id="sec-unit">
+    <div class="flip-card" id="sec">
+      <div class="top">00</div>
+      <div class="bottom">00</div>
+      <div class="top-flip">00</div>
+      <div class="bottom-flip">00</div>
+    </div>
+    <div class="label">SECONDS</div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
+
+

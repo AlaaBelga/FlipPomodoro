@@ -1,0 +1,203 @@
+:root {
+  --tile: #cddc9a;
+  --bg: #e9f0f6;
+  --text: #333;
+  --radius: 30px;
+  
+  /* Dimensions */
+  --card-height: 65vh; 
+  --font-size: 52vh;   
+}
+
+* {
+  box-sizing: border-box;
+  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+body {
+  margin: 0;
+  height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden; 
+}
+
+/* --- Controls --- */
+.controls-bar {
+  position: absolute;
+  top: 20px;
+  z-index: 100;
+  display: flex;
+  gap: 30px;
+  background: rgba(255, 255, 255, 0.4);
+  padding: 10px 20px;
+  border-radius: 50px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  align-items: center;
+  transition: opacity 0.3s;
+}
+
+body.fullscreen-mode .controls-bar { opacity: 0; }
+body.fullscreen-mode .controls-bar:hover { opacity: 1; }
+
+.settings-group, .action-group {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+.input-group { display: flex; flex-direction: column; }
+.input-group label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #666;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+select, input[type="color"] {
+  border: none; background: transparent; font-size: 14px;
+  cursor: pointer; font-weight: 600; padding: 0;
+}
+
+button {
+  padding: 10px 20px; border: none; border-radius: 20px;
+  cursor: pointer; font-weight: 700; font-size: 14px;
+  transition: transform 0.1s, opacity 0.2s;
+}
+button:active { transform: scale(0.95); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-primary { background: #222; color: #fff; }
+.btn-secondary { background: #ddd; color: #333; }
+.btn-danger { background: #ffcccb; color: #d00; }
+.btn-icon { padding: 10px; border-radius: 50%; aspect-ratio: 1; }
+
+/* --- Giant Clock Layout --- */
+.clock-container {
+  flex-grow: 1;
+  display: flex;
+  gap: 2vw; 
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.flip-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 42vw; 
+}
+
+.label {
+  margin-top: 20px;
+  font-size: 2vh;
+  font-weight: 700;
+  letter-spacing: 4px;
+  opacity: 0.4;
+}
+
+/* --- The Flip Card --- */
+.flip-card {
+  position: relative;
+  width: 100%;
+  height: var(--card-height);
+  perspective: 3000px; /* Increased for gentler 3D effect */
+  border-radius: var(--radius);
+}
+
+/* --- SHARED CARD STYLES --- */
+.top, .bottom, .top-flip, .bottom-flip {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 50%;
+  overflow: hidden;
+  background: var(--tile);
+  color: var(--text);
+  font-size: var(--font-size);
+  font-weight: 700;
+  
+  /* HARDWARE ACCELERATION */
+  will-change: transform, filter; /* Optimized for brightness changes too */
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  
+  line-height: var(--card-height);
+  text-align: center;
+}
+
+/* --- TOP HALF --- */
+.top, .top-flip {
+  top: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+  transform-origin: bottom;
+  border-bottom: 1px solid rgba(0,0,0,0.1); 
+  display: block; 
+}
+
+/* --- BOTTOM HALF --- */
+.bottom, .bottom-flip {
+  bottom: 0;
+  border-radius: 0 0 var(--radius) var(--radius);
+  transform-origin: top;
+  display: flex;             
+  align-items: flex-end;     
+  justify-content: center;   
+}
+
+/* Z-Index Layering */
+.top-flip {
+  z-index: 2;
+  transform: rotateX(0deg);
+}
+.bottom-flip {
+  z-index: 1;
+  transform: rotateX(90deg);
+}
+.top { z-index: 1; }
+.bottom { z-index: 0; }
+
+/* --- Animations --- */
+.flip-card.flipping .top-flip {
+  /* 0.8s duration + Material Easing */
+  animation: flipDown 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.flip-card.flipping .bottom-flip {
+  /* 0.8s duration + Material Easing */
+  animation: flipUp 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+/* Added brightness filters for shadow depth */
+@keyframes flipDown {
+  0% { 
+    transform: rotateX(0deg); 
+    filter: brightness(1); 
+  }
+  100% { 
+    transform: rotateX(-90deg); 
+    filter: brightness(0.7); /* Darkens as it flips down/away */
+  }
+}
+
+@keyframes flipUp {
+  0% { 
+    transform: rotateX(90deg); 
+    filter: brightness(0.7); /* Starts dark (in shadow) */
+  }
+  100% { 
+    transform: rotateX(0deg); 
+    filter: brightness(1); /* Brightens as it faces front */
+  }
+}
+
+
+
+
+
