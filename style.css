@@ -141,16 +141,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   display: block; 
 }
 
-/* --- BOTTOM HALF --- */
 .bottom, .bottom-flip {
   bottom: 0;
   border-radius: 0 0 var(--radius) var(--radius);
   transform-origin: top;
-  display: flex;             
-  align-items: flex-end;     
-  justify-content: center;   
+  
+  /* NEW ALIGNMENT */
+  display: block; 
+  line-height: 0px; 
 }
-
 /* Z-Index Layering */
 .top-flip {
   z-index: 2;
