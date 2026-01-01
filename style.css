@@ -6,7 +6,7 @@
   
   /* Dimensions */
   --card-height: 65vh; 
-  --font-size: 52vh;   
+  --font-size: min(52vh, 35vw);   
 }
 
 * {
