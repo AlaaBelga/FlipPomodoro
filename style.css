@@ -1,6 +1,6 @@
 :root {
-  --tile: #cddc9a;
-  --bg: #e9f0f6;
+  --tile: rgba(232, 167, 191);
+  --bg: rgba(243, 212, 223);
   --text: #333;
   --radius: 30px;
   
