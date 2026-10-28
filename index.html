@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Giant Flip Pomodoro</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -10,15 +11,25 @@
 <div class="controls-bar">
   <div class="settings-group">
     <div class="input-group">
-      <label>Mode</label>
+      <label for="timerType">Timer</label>
+      <select id="timerType">
+        <option value="preset">Pomodoro</option>
+        <option value="custom">Custom time</option>
+        <option value="until">Until a time</option>
+      </select>
+    </div>
+
+    <!-- Pomodoro presets -->
+    <div class="input-group" data-show="preset">
+      <label for="mode">Mode</label>
       <select id="mode">
         <option value="work">Work</option>
         <option value="break">Break</option>
       </select>
     </div>
 
-    <div class="input-group">
-      <label>Timer</label>
+    <div class="input-group" data-show="preset">
+      <label for="duration">Length</label>
       <select id="duration">
         <option value="25">25 / 5</option>
         <option value="50">50 / 10</option>
@@ -26,44 +37,62 @@
       </select>
     </div>
 
+    <!-- Custom duration -->
+    <div class="input-group" data-show="custom" hidden>
+      <label for="customH">Hours</label>
+      <input type="number" id="customH" min="0" max="99" value="0" inputmode="numeric">
+    </div>
+
+    <div class="input-group" data-show="custom" hidden>
+      <label for="customM">Minutes</label>
+      <input type="number" id="customM" min="0" max="5999" value="45" inputmode="numeric">
+    </div>
+
+    <!-- Countdown to a clock time -->
+    <div class="input-group" data-show="until" hidden>
+      <label for="untilTime">Study until <span id="untilHint"></span></label>
+      <input type="time" id="untilTime">
+    </div>
+
     <div class="input-group">
-      <label>Card Color</label>
+      <label for="tileColor">Card Color</label>
       <input type="color" id="tileColor" value="#E8A7BF">
     </div>
-    
+
     <div class="input-group">
-        <label>Bg Color</label>
-        <input type="color" id="bgColor" value="#F3D4DF">
-      </div>
+      <label for="bgColor">Bg Color</label>
+      <input type="color" id="bgColor" value="#F3D4DF">
+    </div>
   </div>
 
   <div class="action-group">
     <button id="start" class="btn-primary">Start</button>
     <button id="pause" class="btn-secondary" disabled>Pause</button>
     <button id="reset" class="btn-danger">Stop</button>
-    <button id="fullscreen" class="btn-icon">⛶</button>
+    <button id="fullscreen" class="btn-icon" aria-label="Fullscreen">⛶</button>
   </div>
 </div>
 
+<!-- First card: minutes (or hours). Second card: seconds (or minutes). -->
 <div class="clock-container">
-  <div class="flip-unit" id="min-unit">
-    <div class="flip-card" id="min">
+  <div class="flip-unit">
+    <div class="flip-card" id="cardA">
       <div class="top">25</div>
       <div class="bottom">25</div>
       <div class="top-flip">25</div>
       <div class="bottom-flip">25</div>
     </div>
-    <div class="label">MINUTES</div>
+    <div class="label" id="labelA">MINUTES</div>
   </div>
 
-  <div class="flip-unit" id="sec-unit">
-    <div class="flip-card" id="sec">
+  <div class="flip-unit">
+    <div class="flip-card" id="cardB">
       <div class="top">00</div>
       <div class="bottom">00</div>
       <div class="top-flip">00</div>
       <div class="bottom-flip">00</div>
     </div>
-    <div class="label">SECONDS</div>
+    <div class="label" id="labelB">SECONDS</div>
   </div>
 </div>
 
