@@ -217,6 +217,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   }
 }
 
+/* Touch screens: no hover, so hide the controls completely in fullscreen / focus mode
+   (tap the clock to bring them back) */
+@media (pointer: coarse) {
+  body.fullscreen-mode .controls-bar { display: none; }
+}
+
 /* --- Short landscape screens (phones turned sideways) --- */
 @media (max-height: 520px) and (orientation: landscape) {
   .controls-bar {
