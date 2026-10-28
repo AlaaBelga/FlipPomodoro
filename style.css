@@ -144,7 +144,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-weight: 700;
 
   /* HARDWARE ACCELERATION */
-  will-change: transform, filter; /* Optimized for brightness changes too */
+  will-change: transform;
   transform-style: preserve-3d;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -194,27 +194,45 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   animation: flipUp 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
 }
 
-/* Added brightness filters for shadow depth */
 @keyframes flipDown {
-  0% {
-    transform: rotateX(0deg);
-    filter: brightness(1);
-  }
-  100% {
-    transform: rotateX(-90deg);
-    filter: brightness(0.7); /* Darkens as it flips down/away */
-  }
+  0%   { transform: rotateX(0deg); }
+  100% { transform: rotateX(-90deg); }
 }
 
 @keyframes flipUp {
-  0% {
-    transform: rotateX(90deg);
-    filter: brightness(0.7); /* Starts dark (in shadow) */
-  }
-  100% {
-    transform: rotateX(0deg);
-    filter: brightness(1); /* Brightens as it faces front */
-  }
+  0%   { transform: rotateX(90deg); }
+  100% { transform: rotateX(0deg); }
+}
+
+/* Shadow depth: a dark layer fades in/out over the flipping halves.
+   (Done with opacity instead of CSS filter, because filter on 3D-transformed
+   elements is unreliable in mobile Safari.) */
+.top-flip::after, .bottom-flip::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.flip-card.flipping .top-flip::after {
+  animation: shadeDown 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+.flip-card.flipping .bottom-flip::after {
+  animation: shadeUp 0.8s cubic-bezier(0.4, 0.0, 0.2, 1) forwards;
+}
+
+@keyframes shadeDown {
+  0%   { opacity: 0; }
+  100% { opacity: 0.3; } /* darkens as it flips down/away */
+}
+
+@keyframes shadeUp {
+  0%   { opacity: 0.3; } /* starts in shadow */
+  100% { opacity: 0; }   /* brightens as it faces front */
 }
 
 /* Touch screens: no hover, so hide the controls completely in fullscreen / focus mode
