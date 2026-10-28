@@ -198,22 +198,140 @@ function finish() {
   state = "done";
   render(0, true);
   setButtons();
+  keepAwake(false);
+  playAlarm();
 
   if (wasPreset) {
     // Pomodoro: after a moment, hop to the other mode (work <-> break), as before.
+    // The alarm keeps ringing until Stop / Start / a tap on the clock.
     doneTimeout = setTimeout(() => {
       isWork = !isWork;
       modeSelect.value = isWork ? "work" : "break";
-      resetTimer();
+      resetTimer(true);
     }, 1500);
   }
   // Custom / until: stay on 00:00 until the person presses Stop.
 }
 
+// --- Alarm sound (synthesized bell chime, no audio file needed) ---
+
+let audioCtx = null;
+let alarm = null; // { master, timeout }
+
+// Browsers only allow audio after a tap, so this runs from the Start button.
+function unlockAudio() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  } catch (e) {}
+}
+
+// One bell strike: a fundamental plus a few overtones that fade at different speeds.
+function strikeBell(ctx, out, freq, when, vol) {
+  const partials = [
+    [1, 1.0, 2.4],
+    [2, 0.5, 1.6],
+    [3, 0.28, 1.1],
+    [4.2, 0.14, 0.7],
+  ]; // [frequency multiple, loudness, decay seconds]
+
+  partials.forEach(([mult, amp, decay]) => {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq * mult;
+    g.gain.setValueAtTime(0.0001, when);
+    g.gain.exponentialRampToValueAtTime(vol * amp, when + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, when + decay);
+    osc.connect(g);
+    g.connect(out);
+    osc.start(when);
+    osc.stop(when + decay + 0.05);
+  });
+}
+
+function playAlarm() {
+  stopAlarm();
+  try {
+    unlockAudio();
+    const ctx = audioCtx;
+    if (!ctx) return;
+
+    // Loud but clean: a compressor stops overlapping bells from distorting.
+    const master = ctx.createGain();
+    master.gain.value = 1;
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -14;
+    comp.knee.value = 12;
+    comp.ratio.value = 8;
+    comp.attack.value = 0.003;
+    comp.release.value = 0.25;
+    master.connect(comp);
+    comp.connect(ctx.destination);
+
+    // C major arpeggio going up, ending on a bright chord; repeated 5 times (~13s).
+    const notes = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+    const t0 = ctx.currentTime + 0.05;
+    const roundLen = 2.6;
+    const rounds = 5;
+    for (let r = 0; r < rounds; r++) {
+      const start = t0 + r * roundLen;
+      notes.forEach((f, i) => strikeBell(ctx, master, f, start + i * 0.2, 0.42));
+      strikeBell(ctx, master, 1046.5, start + 0.9, 0.38); // C6
+      strikeBell(ctx, master, 1318.5, start + 0.9, 0.34); // E6
+      strikeBell(ctx, master, 1568.0, start + 0.9, 0.3); // G6
+    }
+
+    const total = rounds * roundLen + 3;
+    alarm = { master, timeout: setTimeout(stopAlarm, total * 1000) };
+
+    if (navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400]);
+  } catch (e) {}
+}
+
+function stopAlarm() {
+  if (!alarm) return;
+  const { master, timeout } = alarm;
+  alarm = null;
+  clearTimeout(timeout);
+  try {
+    master.gain.cancelScheduledValues(0);
+    master.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
+    setTimeout(() => master.disconnect(), 400);
+  } catch (e) {}
+  if (navigator.vibrate) navigator.vibrate(0);
+}
+
+// --- Keep the screen awake while counting (so the alarm can sound) ---
+
+let wakeLock = null;
+
+async function keepAwake(on) {
+  try {
+    if (on && "wakeLock" in navigator && !wakeLock) {
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release", () => (wakeLock = null));
+    } else if (!on && wakeLock) {
+      await wakeLock.release();
+      wakeLock = null;
+    }
+  } catch (e) {}
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && state === "running") keepAwake(true);
+});
+
 // --- Controls ---
 
 function startTimer() {
   if (state === "running" || state === "done") return;
+
+  unlockAudio(); // must happen inside this tap so the alarm is allowed to play later
+  stopAlarm();
+  keepAwake(true);
 
   if (state === "paused") {
     endTime = Date.now() + pausedMs;
@@ -239,11 +357,14 @@ function pauseTimer() {
   pausedMs = Math.max(0, endTime - Date.now());
   state = "paused";
   setButtons();
+  keepAwake(false);
 }
 
-function resetTimer() {
+function resetTimer(keepAlarm = false) {
   clearTimeout(doneTimeout);
   doneTimeout = null;
+  if (keepAlarm !== true) stopAlarm();
+  keepAwake(false);
 
   state = "idle";
   setLocked(false);
@@ -255,7 +376,7 @@ function resetTimer() {
 
 startBtn.onclick = startTimer;
 pauseBtn.onclick = pauseTimer;
-resetBtn.onclick = resetTimer;
+resetBtn.onclick = () => resetTimer();
 
 typeSelect.onchange = () => {
   updateGroups();
@@ -308,6 +429,7 @@ document.addEventListener("fullscreenchange", () => {
 
 // Touch screens have no hover, so tapping the clock brings the controls back.
 document.querySelector(".clock-container").addEventListener("click", () => {
+  stopAlarm(); // a tap on the clock also silences the alarm
   if (!isTouch || !document.body.classList.contains("fullscreen-mode")) return;
   if (document.fullscreenElement) document.exitFullscreen();
   else setFocusMode(false);
