@@ -1,6 +1,11 @@
 const HOUR = 3600;
 const MAX_SECONDS = 99 * HOUR + 59 * 60; // 99:59 is the most two cards can show
 
+// Below this many seconds the cards show MM:SS (seconds flip every second).
+// Two cards hold at most 99, so 100 minutes (6000s) is the highest sensible limit.
+// At or above it the cards show HH:MM instead.
+const HM_THRESHOLD = 100 * 60;
+
 // --- State ---
 let workMin = 25;
 let breakMin = 5;
@@ -79,10 +84,10 @@ function idleSeconds() {
 }
 
 // What the two cards show for a given number of seconds left.
-// 1 hour or more -> hours : minutes (minutes round up, so 1h 47m stays 1:47 until it drops to 1:46)
-// under 1 hour   -> minutes : seconds
+// Under 100 minutes -> minutes : seconds (seconds flip every second)
+// 100 minutes or more -> hours : minutes (minutes round up)
 function partsFor(rem) {
-  if (rem >= HOUR) {
+  if (rem >= HM_THRESHOLD) {
     const totalMin = Math.ceil(rem / 60);
     return { fmt: "hm", a: Math.floor(totalMin / 60), b: totalMin % 60 };
   }
@@ -102,7 +107,10 @@ function updateCard(id, newValue, animate = true) {
 
   if (newValue === currentValue) return;
 
+  const token = (card._flipToken = (card._flipToken || 0) + 1);
+
   if (!animate) {
+    card.classList.remove("flipping");
     top.textContent = newValue;
     bottom.textContent = newValue;
     topFlip.textContent = newValue;
@@ -110,11 +118,11 @@ function updateCard(id, newValue, animate = true) {
     return;
   }
 
-  // 1. Prepare static bg
+  // 1. Static halves: new number on top, old number stays below until the flip lands
   top.textContent = newValue;
-  bottom.textContent = newValue;
+  bottom.textContent = currentValue;
 
-  // 2. Prepare flippers
+  // 2. Flippers: old number folds away, new number folds in
   topFlip.textContent = currentValue;
   bottomFlip.textContent = newValue;
 
@@ -128,6 +136,8 @@ function updateCard(id, newValue, animate = true) {
 
   // 4. Cleanup (matches the 0.8s CSS animation)
   setTimeout(() => {
+    if (card._flipToken !== token) return; // a newer update took over
+    bottom.textContent = newValue;
     topFlip.textContent = newValue;
     card.classList.remove("flipping");
   }, 800);
@@ -172,7 +182,15 @@ function refreshIdle() {
 
   if (typeSelect.value === "until") {
     const t = untilTarget();
-    untilHint.textContent = t && t.tomorrow ? "(tomorrow)" : "";
+    if (t) {
+      // Show how long the timer will really run, so a wrong AM/PM is obvious.
+      const mins = Math.round((t.time - Date.now()) / 60000);
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      untilHint.textContent = `(${t.tomorrow ? "tomorrow · " : ""}${h}h ${m}m)`;
+    } else {
+      untilHint.textContent = "";
+    }
   }
 
   startBtn.disabled = secs <= 0;
@@ -217,14 +235,41 @@ function finish() {
 
 let audioCtx = null;
 let alarm = null; // { master, timeout }
+let alarmPending = false; // alarm was due but iOS wouldn't let the audio run yet
+
+// Called when the audio engine changes state (e.g. iOS lets it run again).
+function onAudioStateChange() {
+  if (audioCtx && audioCtx.state === "running" && alarmPending) playAlarm();
+}
 
 // Browsers only allow audio after a tap, so this runs from the Start button.
+// It is safe to call again at any time (visibility change, taps) to revive the audio.
 function unlockAudio() {
   try {
+    // iOS 16.4+: treat audio as "playback" so the silent/ring switch doesn't mute it.
+    if (navigator.audioSession) navigator.audioSession.type = "playback";
+
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
-    if (!audioCtx) audioCtx = new AC();
-    if (audioCtx.state === "suspended") audioCtx.resume();
+
+    if (!audioCtx) {
+      audioCtx = new AC();
+      audioCtx.onstatechange = onAudioStateChange;
+
+      // Play one silent sample inside the tap: this fully unlocks audio on iOS.
+      try {
+        const src = audioCtx.createBufferSource();
+        src.buffer = audioCtx.createBuffer(1, 1, 22050);
+        src.connect(audioCtx.destination);
+        src.start(0);
+      } catch (e) {}
+    }
+
+    // iOS uses "interrupted" (not just "suspended") after the screen locks / app is backgrounded.
+    if (audioCtx.state !== "running") {
+      const p = audioCtx.resume();
+      if (p && p.catch) p.catch(() => {});
+    }
   } catch (e) {}
 }
 
@@ -253,11 +298,18 @@ function strikeBell(ctx, out, freq, when, vol) {
 }
 
 function playAlarm() {
-  stopAlarm();
+  stopAlarm(); // also clears alarmPending
   try {
     unlockAudio();
     const ctx = audioCtx;
     if (!ctx) return;
+
+    // If iOS isn't letting the audio run right now, remember that the alarm is due.
+    // It rings as soon as the audio comes back (page visible again, next tap, etc.).
+    if (ctx.state !== "running") {
+      alarmPending = true;
+      return;
+    }
 
     // Loud but clean: a compressor stops overlapping bells from distorting.
     const master = ctx.createGain();
@@ -292,6 +344,7 @@ function playAlarm() {
 }
 
 function stopAlarm() {
+  alarmPending = false;
   if (!alarm) return;
   const { master, timeout } = alarm;
   alarm = null;
@@ -302,6 +355,11 @@ function stopAlarm() {
     setTimeout(() => master.disconnect(), 400);
   } catch (e) {}
   if (navigator.vibrate) navigator.vibrate(0);
+}
+
+// Ring a late alarm (one that was due while the phone was locked / audio was blocked).
+function retryPendingAlarm() {
+  if (alarmPending) playAlarm();
 }
 
 // --- Keep the screen awake while counting (so the alarm can sound) ---
@@ -320,9 +378,27 @@ async function keepAwake(on) {
   } catch (e) {}
 }
 
+// Coming back to the page: re-grab the wake lock, revive the audio, ring if an alarm is waiting.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && state === "running") keepAwake(true);
+  if (document.visibilityState !== "visible") return;
+  if (state === "running") keepAwake(true);
+  unlockAudio();
+  setTimeout(retryPendingAlarm, 200);
 });
+
+// Fallback: a tap anywhere (except buttons / the clock, which have their own meaning)
+// is a user gesture, so iOS will allow a waiting alarm to ring.
+document.addEventListener(
+  "touchend",
+  (e) => {
+    if (!alarmPending) return;
+    const t = e.target;
+    if (t && t.closest && t.closest("button, .clock-container")) return;
+    unlockAudio();
+    setTimeout(retryPendingAlarm, 100);
+  },
+  { passive: true }
+);
 
 // --- Controls ---
 
@@ -448,6 +524,5 @@ updateGroups();
 setButtons();
 refreshIdle();
 setInterval(loop, 200);
-
 
 
