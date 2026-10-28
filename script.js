@@ -279,21 +279,38 @@ document.getElementById("tileColor").oninput = (e) =>
 document.getElementById("bgColor").oninput = (e) =>
   document.documentElement.style.setProperty("--bg", e.target.value);
 
-// Fullscreen (not available on iPhone Safari, so hide the button there)
-if (!document.documentElement.requestFullscreen) {
-  fullScreenBtn.hidden = true;
+// Fullscreen.
+// Browsers with the Fullscreen API (desktop, Android) go truly fullscreen.
+// iPhone Safari has no such API, so there the button switches to "focus mode":
+// the controls hide and the clock fills the whole page.
+const canNativeFullscreen = !!document.documentElement.requestFullscreen;
+const isTouch = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+
+function setFocusMode(on) {
+  document.body.classList.toggle("fullscreen-mode", on);
 }
 
 fullScreenBtn.onclick = () => {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
+  if (canNativeFullscreen) {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => setFocusMode(true));
+    } else {
+      document.exitFullscreen();
+    }
   } else {
-    document.exitFullscreen();
+    setFocusMode(!document.body.classList.contains("fullscreen-mode"));
   }
 };
 
 document.addEventListener("fullscreenchange", () => {
-  document.body.classList.toggle("fullscreen-mode", !!document.fullscreenElement);
+  setFocusMode(!!document.fullscreenElement);
+});
+
+// Touch screens have no hover, so tapping the clock brings the controls back.
+document.querySelector(".clock-container").addEventListener("click", () => {
+  if (!isTouch || !document.body.classList.contains("fullscreen-mode")) return;
+  if (document.fullscreenElement) document.exitFullscreen();
+  else setFocusMode(false);
 });
 
 // --- Init ---
